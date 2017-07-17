@@ -31,14 +31,15 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        //map
+        //---------------------------------------------------------map
         let eventInteger: Event<Int, NSError> = .value(100)
         let mapEvent: Event<String, NSError> = eventInteger.map { (value) -> String in
             return "You get a grade: \(value)"
         }
         print(mapEvent.value!)
         
-        //mapError
+        
+        //---------------------------------------------------------mapError
         let errorEvent: Event<Int, McyError> = .failed(McyError())
         print(errorEvent.error!.display())
         
@@ -47,7 +48,8 @@ class ViewController: UIViewController {
         }
         print(errorMapEvent.error!.display())
         
-        //observer
+        
+        //---------------------------------------------------------observer
         let observer = Observer<String, NSError>(value: { (value) in
             print(value)
         }, failed: { (error) in
@@ -65,7 +67,8 @@ class ViewController: UIViewController {
         print("\n")
         
         
-        //Bag
+        
+        //---------------------------------------------------------Bag
         var myBags = Bag<String>()
         var bagsTokens = ContiguousArray<RemovalToken>()
         
@@ -89,6 +92,98 @@ class ViewController: UIViewController {
         while let element = myBagsIterator.next() {
             print(element)
         }
+        
+        
+        //---------------------------------------------------------Signal
+        //never
+        let neverSignal = Signal<Int, NoError>.never
+        let observer1 = Observer<Int, NoError>(value: { (value) in
+            print("value not called")
+        }, failed: { (error) in
+            print("error not called")
+        }, completed: {
+            print("completed not called")
+        }) {
+            print("interrupted not called")
+        }
+        neverSignal.observe(observer1)
+        
+        //empty
+        let emptySignal = Signal<Int, NoError>.empty
+        let observer2 = Observer<Int, NoError>(value: { (value) in
+            print("value not called")
+        }, failed: { (error) in
+            print("error not called")
+        }, completed: {
+            print("completed not called")
+        }) {
+            print("interrupted called")
+        }
+        emptySignal.observe(observer2)
+        
+        
+        //---------------------------------------------------------pipe
+        let (signal, sendMessage) = Signal<Int, NoError>.pipe()
+        let subscriber1 = Observer<Int, NoError>(value: {
+            print("Subscrober 1 received \($0)")
+        })
+        let actionDisposable1 = signal.observe(subscriber1)
+        sendMessage.send(value: 10)
+        print(actionDisposable1?.isDisposed as Any)
+        actionDisposable1?.dispose()
+        print(actionDisposable1?.isDisposed as Any)
+        
+        
+        //---------------------------------------------------------SignalProtocol
+        let (signalX, _) = Signal<Int, NSError>.pipe()
+        signalX.observe { (event) in
+            if case let Event.value(value) = event {
+                print("value : \(value)")
+            }
+            if case let Event.failed(error) = event {
+                print("error : \(error)")
+            }
+            if case Event.completed = event {
+                print("completed")
+            }
+            if case Event.interrupted = event {
+                print("interrupted")
+            }
+        }
+        
+        
+        //---------------------------------------------------------高阶函数
+        let (signalY, observerY) = Signal<Int, NSError>.pipe()
+        //通过Event的map方法将event中的value类型改变，然后重新生成observer，再绑定到新的signal上
+        let mappedSignal: Signal<String, NSError> = signalY.map { (value) -> String in
+            return "map rule: \(value * 3)"
+        }
+        let subscriberY = Observer<String, NSError>(value: {
+            print("subscriber received : \($0)")
+        })
+        mappedSignal.observe(subscriberY)
+        observerY.send(value: 10)
+        //链式写法
+        signalY.map { (value) -> String in
+            return "map rule: \(value * 5)"
+            }.observe(Observer<String, NSError>(value: {
+                print("subscriber received : \($0)")
+            }))
+        observerY.send(value: 10)
+        
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
